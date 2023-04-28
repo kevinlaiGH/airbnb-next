@@ -3,7 +3,7 @@
 import useRentModal from "@/app/hooks/useRentModal";
 import Modal from "./Modal";
 import { useMemo, useState } from "react";
-import { FieldValues, useForm } from "react-hook-form";
+import { FieldValues, SubmitHandler, useForm } from "react-hook-form";
 import { categories } from "../navbar/Categories";
 import Heading from "../Heading";
 import CategoryInput from "../inputs/CategoryInput";
@@ -12,6 +12,9 @@ import dynamic from "next/dynamic";
 import Counter from "../inputs/Counter";
 import ImageUpload from "../inputs/ImageUpload";
 import Input from "../inputs/Input";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 enum STEPS {
   CATEGORY = 0,
@@ -23,8 +26,11 @@ enum STEPS {
 }
 
 const RentModal = () => {
+  const router = useRouter();
   const rentModal = useRentModal();
   const [step, setStep] = useState(STEPS.CATEGORY);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     register,
@@ -79,6 +85,30 @@ const RentModal = () => {
   const onNext = () => {
     setStep((value) => value + 1);
   };
+
+  const onSubmit: SubmitHandler<FieldValues> = (data) => {
+    if (step !== STEPS.PRICE) {
+      return onNext();
+    }
+    setIsLoading(true);
+    // TODO: create api endpoint for listings
+    axios
+      .post("/api/listings", data)
+      .then(() => {
+        toast.success("Listing created!");
+        router.refresh();
+        reset();
+        setStep(STEPS.CATEGORY);
+        rentModal.onClose();
+      })
+      .catch(() => {
+        toast.error("Something went wrong.");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  };
+
   const actionLabel = useMemo(() => {
     return step === STEPS.PRICE ? "Create" : "Next";
   }, [step]);
@@ -190,6 +220,7 @@ const RentModal = () => {
         <Input
           id="title"
           label="Title"
+          disabled={isLoading}
           register={register}
           errors={errors}
           required
@@ -198,6 +229,7 @@ const RentModal = () => {
         <Input
           id="description"
           label="Description"
+          disabled={isLoading}
           register={register}
           errors={errors}
           required
@@ -218,6 +250,7 @@ const RentModal = () => {
           label="Price"
           formatPrice
           type="number"
+          disabled={isLoading}
           register={register}
           errors={errors}
           required
@@ -230,7 +263,7 @@ const RentModal = () => {
     <Modal
       isOpen={rentModal.isOpen}
       onClose={rentModal.onClose}
-      onSubmit={onNext}
+      onSubmit={handleSubmit(onSubmit)}
       actionLabel={actionLabel}
       secondaryActionLabel={secondaryActionLabel}
       secondaryAction={step === STEPS.CATEGORY ? undefined : onBack}
